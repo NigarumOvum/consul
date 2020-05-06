@@ -257,7 +257,7 @@ func newTestServerConfigT(t testing.TB, cb ServerConfigCallback) (*TestServer, e
 	}
 
 	cfg := defaultServerConfig()
-	testWriter := TestWriter(t)
+	testWriter := NewLogBuffer(t)
 	cfg.Stdout = testWriter
 	cfg.Stderr = testWriter
 
