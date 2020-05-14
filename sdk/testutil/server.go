@@ -212,34 +212,11 @@ type TestServer struct {
 	tmpdir string
 }
 
-// Deprecated: Use NewTestServerT instead.
-func NewTestServer() (*TestServer, error) {
-	return NewTestServerConfigT(nil, nil)
-}
-
-// NewTestServerT is an easy helper method to create a new Consul
-// test server with the most basic configuration.
-func NewTestServerT(t *testing.T) (*TestServer, error) {
-	if t == nil {
-		return nil, errors.New("testutil: a non-nil *testing.T is required")
-	}
-	return NewTestServerConfigT(t, nil)
-}
-
-func NewTestServerConfig(cb ServerConfigCallback) (*TestServer, error) {
-	return NewTestServerConfigT(nil, cb)
-}
-
 // NewTestServerConfig creates a new TestServer, and makes a call to an optional
 // callback function to modify the configuration. If there is an error
 // configuring or starting the server, the server will NOT be running when the
 // function returns (thus you do not need to stop it).
 func NewTestServerConfigT(t testing.TB, cb ServerConfigCallback) (*TestServer, error) {
-	return newTestServerConfigT(t, cb)
-}
-
-// newTestServerConfigT is the internal helper for NewTestServerConfigT.
-func newTestServerConfigT(t testing.TB, cb ServerConfigCallback) (*TestServer, error) {
 	path, err := exec.LookPath("consul")
 	if err != nil || path == "" {
 		return nil, fmt.Errorf("consul not found on $PATH - download and install " +
