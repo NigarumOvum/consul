@@ -15,7 +15,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -102,7 +101,6 @@ type TestServerConfig struct {
 	Connect             map[string]interface{} `json:"connect,omitempty"`
 	EnableDebug         bool                   `json:"enable_debug,omitempty"`
 	ReadyTimeout        time.Duration          `json:"-"`
-	Stdout, Stderr      io.Writer              `json:"-"`
 	Args                []string               `json:"-"`
 	ReturnPorts         func()                 `json:"-"`
 }
@@ -234,10 +232,6 @@ func NewTestServerConfigT(t testing.TB, cb ServerConfigCallback) (*TestServer, e
 	}
 
 	cfg := defaultServerConfig()
-	testWriter := NewLogBuffer(t)
-	cfg.Stdout = testWriter
-	cfg.Stderr = testWriter
-
 	cfg.DataDir = filepath.Join(tmpdir, "data")
 	if cb != nil {
 		cb(cfg)
@@ -250,10 +244,7 @@ func NewTestServerConfigT(t testing.TB, cb ServerConfigCallback) (*TestServer, e
 		return nil, errors.Wrap(err, "failed marshaling json")
 	}
 
-	if t != nil {
-		// if you really want this output ensure to pass a valid t
-		t.Logf("CONFIG JSON: %s", string(b))
-	}
+	t.Logf("CONFIG JSON: %s", string(b))
 	configFile := filepath.Join(tmpdir, "config.json")
 	if err := ioutil.WriteFile(configFile, b, 0644); err != nil {
 		cfg.ReturnPorts()
@@ -261,21 +252,13 @@ func NewTestServerConfigT(t testing.TB, cb ServerConfigCallback) (*TestServer, e
 		return nil, errors.Wrap(err, "failed writing config content")
 	}
 
-	stdout := testWriter
-	if cfg.Stdout != nil {
-		stdout = cfg.Stdout
-	}
-	stderr := testWriter
-	if cfg.Stderr != nil {
-		stderr = cfg.Stderr
-	}
-
+	buf := NewLogBuffer(t)
 	// Start the server
-	args := []string{"agent", "-config-file", configFile}
+	args := []string{"agent", "-config-file", configFile, "-log-file=./foo.log"}
 	args = append(args, cfg.Args...)
 	cmd := exec.Command("consul", args...)
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	cmd.Stdout = buf
+	cmd.Stderr = buf
 	if err := cmd.Start(); err != nil {
 		cfg.ReturnPorts()
 		os.RemoveAll(tmpdir)
@@ -309,7 +292,9 @@ func NewTestServerConfigT(t testing.TB, cb ServerConfigCallback) (*TestServer, e
 
 	// Wait for the server to be ready
 	if err := server.waitForAPI(); err != nil {
-		server.Stop()
+		if err := server.Stop(); err != nil {
+			t.Logf("server stop failed with: %v", err)
+		}
 		return nil, err
 	}
 

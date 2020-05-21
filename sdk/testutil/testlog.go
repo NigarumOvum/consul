@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -36,6 +37,8 @@ func NewLogBuffer(t CleanupT) io.Writer {
 	buf := &logBuffer{buf: new(bytes.Buffer)}
 	t.Cleanup(func() {
 		if t.Failed() {
+			buf.Lock()
+			defer buf.Unlock()
 			buf.buf.WriteTo(os.Stdout)
 		}
 	})
@@ -49,9 +52,11 @@ type CleanupT interface {
 
 type logBuffer struct {
 	buf *bytes.Buffer
-	// TODO: mutex for write?
+	sync.Mutex
 }
 
 func (lb *logBuffer) Write(p []byte) (n int, err error) {
-	return lb.buf.Write(append(p, '\n'))
+	lb.Lock()
+	defer lb.Unlock()
+	return lb.buf.Write(p)
 }
